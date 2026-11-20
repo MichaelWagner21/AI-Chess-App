@@ -149,7 +149,29 @@
     .status-card.is-solved { border-color: rgba(149, 210, 163, .42); background: rgba(37, 67, 48, .6); }
     .status-card.is-solved .status-icon { background: #3e7650; color: #effff0; }
     .source-link { display: inline-block; margin-top: 20px; color: #9fbca5; font-size: 12px; text-decoration-color: rgba(159, 188, 165, .4); text-underline-offset: 3px; }
+    .source-link[hidden] { display: none; }
     .source-link:hover { color: #d2e8d4; }
+    .next-puzzle {
+      display: flex;
+      width: 100%;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 12px;
+      padding: 13px 16px;
+      border: 1px solid rgba(177, 215, 184, .34);
+      border-radius: 11px;
+      background: #a5c8aa;
+      color: #17251c;
+      cursor: pointer;
+      font: inherit;
+      font-size: 13px;
+      font-weight: 800;
+      transition: background .18s ease, transform .18s ease;
+    }
+    .next-puzzle:hover { background: #c0ddc2; transform: translateY(-1px); }
+    .next-puzzle:focus-visible { outline: 3px solid #edc876; outline-offset: 3px; }
+    .next-puzzle[hidden] { display: none; }
+    .turn-dot.is-black { background: #26302c; border: 1px solid rgba(255,255,255,.45); }
 
     @keyframes nudge { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
 
@@ -191,19 +213,17 @@
       </section>
 
       <section class="side-panel" aria-labelledby="page-title">
-        <p class="eyebrow">Puzzle 01 <span aria-hidden="true">/</span> Tactics</p>
+        <p class="eyebrow"><span id="puzzle-counter">Puzzle 01</span> <span aria-hidden="true">/</span> Tactics</p>
         <h1 id="page-title">Find the<br>best move.</h1>
-        <p class="subtitle">White has a chance to turn the attack into a decisive advantage. Find the move that keeps the pressure on.</p>
-        <div class="puzzle-meta" aria-label="Puzzle themes">
-          <span class="tag">Crushing</span>
-          <span class="tag">Middlegame</span>
-        </div>
+        <p class="subtitle">Find the forcing line. The best sequence begins with one precise move.</p>
+        <div id="puzzle-themes" class="puzzle-meta" aria-label="Puzzle themes"></div>
 
         <div id="status-card" class="status-card" role="status" aria-live="polite">
           <div class="status-row"><span id="status-icon" class="status-icon" aria-hidden="true">↗</span><span id="status-title">Your move</span></div>
           <p id="status-detail">Select a white piece, then choose its destination. You can also drag it.</p>
         </div>
-        <a class="source-link" href="https://lichess.org/game/787zsVup/black#48" target="_blank" rel="noreferrer">View source game on Lichess ↗</a>
+        <button id="next-puzzle" class="next-puzzle" type="button" hidden><span>Next puzzle</span><span aria-hidden="true">→</span></button>
+        <a id="source-link" class="source-link" href="https://lichess.org/game/787zsVup/black#48" target="_blank" rel="noreferrer">View source game on Lichess ↗</a>
       </section>
     </main>
   </div>
@@ -212,42 +232,103 @@
     // One sample row bundled from lichess_db_puzzle.csv (PuzzleId 00008).
     // Lichess moves are UCI: the first move is the opponent's setup move;
     // the player's solution begins with the second move.
-    const puzzleCsvRow = "00008,r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24,f2g3 e6e7 b2b1 b3c1 b1c1 h6c1,1819,77,95,10446,crushing hangingPiece long middlegame,https://lichess.org/game/787zsVup/black#48,,";
-    const puzzleFields = puzzleCsvRow.split(",");
-    const puzzle = {
-      id: puzzleFields[0],
-      fen: puzzleFields[1],
-      moves: puzzleFields[2].trim().split(/\s+/),
-      themes: puzzleFields[7].split(" ")
-    };
+    const puzzleCsvRows = [
+      "00008,r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24,f2g3 e6e7 b2b1 b3c1 b1c1 h6c1,1819,77,95,10446,crushing hangingPiece long middlegame,https://lichess.org/game/787zsVup/black#48,,",
+      "0000D,5rk1/1p3ppp/pq3b2/8/8/1P1Q1N2/P4PPP/3R2K1 w - - 2 27,d3d6 f8d8 d6d8 f6d8,1433,75,96,37700,advantage endgame short,https://lichess.org/game/F8M8OS71#53,French_Defense French_Defense_Exchange_Variation,"
+    ];
+
+    function parseCsvLine(line) {
+      const fields = [];
+      let field = "";
+      let quoted = false;
+      for (let index = 0; index < line.length; index += 1) {
+        const character = line[index];
+        if (character === '"') {
+          if (quoted && line[index + 1] === '"') {
+            field += '"';
+            index += 1;
+          } else {
+            quoted = !quoted;
+          }
+        } else if (character === "," && !quoted) {
+          fields.push(field);
+          field = "";
+        } else {
+          field += character;
+        }
+      }
+      if (quoted) throw new Error("A CSV row has an unmatched quote.");
+      fields.push(field);
+      return fields;
+    }
+
+    function parsePuzzleRow(line) {
+      const fields = parseCsvLine(line);
+      if (fields.length !== 11) throw new Error("A puzzle row must contain all 11 Lichess CSV columns.");
+      const [id, fen, movesText, rating, , , , themesText, gameUrl] = fields;
+      const fenParts = fen.trim().split(/\s+/);
+      if (!id.trim()) throw new Error("A puzzle row is missing its PuzzleId.");
+      if (fenParts.length !== 6 || !/^[wb]$/.test(fenParts[1])) throw new Error(`Puzzle ${id} has an invalid FEN.`);
+      if (fenParts[0].split("/").length !== 8) throw new Error(`Puzzle ${id} has an invalid FEN board.`);
+      const moves = movesText.trim().split(/\s+/);
+      if (moves.length < 2 || moves.some((move) => !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(move))) {
+        throw new Error(`Puzzle ${id} has an invalid UCI move sequence.`);
+      }
+      if (!Number.isFinite(Number(rating))) throw new Error(`Puzzle ${id} has an invalid rating.`);
+      let parsedUrl;
+      try { parsedUrl = new URL(gameUrl); } catch { throw new Error(`Puzzle ${id} has an invalid source URL.`); }
+      if (parsedUrl.hostname !== "lichess.org") throw new Error(`Puzzle ${id} has an invalid source URL.`);
+      return { id, fen, moves, rating: Number(rating), themes: themesText.trim().split(/\s+/).filter(Boolean), gameUrl };
+    }
 
     const glyphs = {
       K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
       k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
     };
     const files = "abcdefgh";
-    const playerColor = puzzle.fen.split(/\s+/)[1] === "w" ? "b" : "w";
     const boardElement = document.getElementById("chessboard");
     const statusCard = document.getElementById("status-card");
     const statusIcon = document.getElementById("status-icon");
     const statusTitle = document.getElementById("status-title");
     const statusDetail = document.getElementById("status-detail");
     const turnLabel = document.getElementById("turn-label");
-    let board = readFen(puzzle.fen);
+    const turnDot = document.querySelector(".turn-dot");
+    const puzzleIdLabel = document.querySelector(".puzzle-id");
+    const puzzleCounter = document.getElementById("puzzle-counter");
+    const puzzleThemes = document.getElementById("puzzle-themes");
+    const nextPuzzleButton = document.getElementById("next-puzzle");
+    const sourceLink = document.getElementById("source-link");
+    let puzzles = [];
+    let puzzleIndex = 0;
+    let puzzle = null;
+    let playerColor = "w";
+    let board = {};
     let selectedSquare = null;
     let solved = false;
     let replyPending = false;
     let nextPlayerMoveIndex = 1;
     let lastMove = null;
 
-    // Prepare the position that Lichess presents to the solver by applying
-    // the opponent's first UCI move from the puzzle row.
-    applyUciMove(board, puzzle.moves[0]);
-    setTurn(playerColor);
-    renderBoard();
+    try {
+      puzzles = puzzleCsvRows.map(parsePuzzleRow);
+      if (puzzles.length < 2) throw new Error("At least two puzzle rows are needed for this set.");
+      loadPuzzle(0);
+    } catch (error) {
+      showDataError(error);
+    }
+
+    nextPuzzleButton.addEventListener("click", () => {
+      const nextIndex = (puzzleIndex + 1) % puzzles.length;
+      try {
+        loadPuzzle(nextIndex);
+      } catch (error) {
+        showDataError(error);
+      }
+    });
 
     function readFen(fen) {
       const rows = fen.split(/\s+/)[0].split("/");
+      if (rows.length !== 8) throw new Error("The FEN board must contain eight ranks.");
       const position = {};
       rows.forEach((row, rowIndex) => {
         let fileIndex = 0;
@@ -255,13 +336,70 @@
           if (/\d/.test(symbol)) {
             fileIndex += Number(symbol);
           } else {
+            if (!/[prnbqkPRNBQK]/.test(symbol)) throw new Error("The FEN contains an unknown piece.");
             const square = `${files[fileIndex]}${8 - rowIndex}`;
             position[square] = symbol;
             fileIndex += 1;
           }
         }
+        if (fileIndex !== 8) throw new Error("A FEN rank does not describe eight squares.");
       });
       return position;
+    }
+
+    function loadPuzzle(index) {
+      const candidate = puzzles[index];
+      if (!candidate) throw new Error("That puzzle could not be found in the bundled set.");
+      const nextBoard = readFen(candidate.fen);
+      if (!applyUciMove(nextBoard, candidate.moves[0])) {
+        throw new Error(`Puzzle ${candidate.id} has a setup move that cannot be applied.`);
+      }
+
+      puzzle = candidate;
+      puzzleIndex = index;
+      playerColor = candidate.fen.split(/\s+/)[1] === "w" ? "b" : "w";
+      board = nextBoard;
+      selectedSquare = null;
+      solved = false;
+      replyPending = false;
+      nextPlayerMoveIndex = 1;
+      lastMove = { from: candidate.moves[0].slice(0, 2), to: candidate.moves[0].slice(2, 4) };
+
+      puzzleCounter.textContent = `Puzzle ${String(index + 1).padStart(2, "0")}`;
+      puzzleIdLabel.textContent = `PUZZLE ${candidate.id}`;
+      document.title = `Chess Tactics - Puzzle ${candidate.id}`;
+      sourceLink.href = candidate.gameUrl;
+      sourceLink.hidden = false;
+      nextPuzzleButton.hidden = true;
+      setThemeTags(candidate.themes);
+      setTurn(playerColor);
+      setStatus("Your move", `Select a ${colorName(playerColor).toLowerCase()} piece, then choose its destination. You can also drag it.`, "↗", "neutral");
+      renderBoard();
+    }
+
+    function setThemeTags(themes) {
+      puzzleThemes.replaceChildren();
+      const displayThemes = themes.length ? themes.slice(0, 2) : ["Tactics"];
+      displayThemes.forEach((theme) => {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = theme.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase());
+        puzzleThemes.append(tag);
+      });
+    }
+
+    function showDataError(error) {
+      puzzle = null;
+      board = {};
+      boardElement.replaceChildren();
+      boardElement.setAttribute("aria-label", "Puzzle board unavailable because the puzzle data could not be read.");
+      turnLabel.textContent = "Puzzle unavailable";
+      puzzleIdLabel.textContent = "DATA ERROR";
+      puzzleCounter.textContent = "Puzzle data";
+      puzzleThemes.replaceChildren();
+      nextPuzzleButton.hidden = true;
+      sourceLink.hidden = true;
+      setStatus("Couldn't load puzzles", error?.message || "The bundled puzzle data could not be read.", "!", "wrong");
     }
 
     function applyUciMove(position, uci) {
@@ -428,6 +566,7 @@
 
     function setTurn(color) {
       turnLabel.textContent = `${colorName(color)} to move`;
+      turnDot.classList.toggle("is-black", color === "b");
       boardElement.setAttribute("aria-label", `Chessboard. ${turnLabel.textContent}.`);
     }
 
@@ -437,7 +576,10 @@
       selectedSquare = null;
       turnLabel.textContent = "Puzzle complete";
       boardElement.setAttribute("aria-label", "Chessboard. Puzzle complete.");
-      setStatus("Puzzle solved", "Excellent. You found the complete line.", "✓", "solved");
+      const lastPuzzle = puzzleIndex === puzzles.length - 1;
+      nextPuzzleButton.querySelector("span").textContent = lastPuzzle ? "Restart puzzle set" : "Next puzzle";
+      nextPuzzleButton.hidden = false;
+      setStatus(lastPuzzle ? "Puzzle set complete" : "Puzzle solved", lastPuzzle ? "Excellent. You completed the sample set." : "Excellent. You found the complete line.", "✓", "solved");
       renderBoard();
     }
 

@@ -21,17 +21,17 @@ Each milestone ends with a working version that can be opened in a browser and t
 - [x] Automatically play the opponent's reply after each correct player move.
 - [x] Allow a retry after a wrong move without advancing the sequence.
 - [x] Show a completion state only after the entire line is solved.
-- [ ] Verify a puzzle with multiple player moves in a browser.
+- [x] Verify a puzzle with multiple player moves in a browser.
 
 ## Milestone 3 - Move through a small puzzle set
 
 **Browser result:** Solve multiple puzzles one after another from a small local CSV sample.
 
-- [ ] Load more than one puzzle row from the CSV sample.
-- [ ] Provide a "Next puzzle" action after a puzzle is completed.
-- [ ] Reset the board and puzzle progress when the next puzzle loads.
-- [ ] Show useful feedback if puzzle data cannot be read or is malformed.
-- [ ] Verify that several puzzles can be completed in sequence in a browser.
+- [x] Load more than one puzzle row from the CSV sample.
+- [x] Provide a "Next puzzle" action after a puzzle is completed.
+- [x] Reset the board and puzzle progress when the next puzzle loads.
+- [x] Show useful feedback if puzzle data cannot be read or is malformed.
+- [x] Verify that several puzzles can be completed in sequence in a browser.
 
 ## Milestone 4 - Use the full puzzle export
 
