@@ -1,0 +1,453 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#151d1b">
+  <title>Chess Tactics - Puzzle 00008</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #151d1b;
+      color: #f5f3ec;
+      font-synthesis: none;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      min-width: 320px;
+      min-height: 100vh;
+      margin: 0;
+      background:
+        radial-gradient(ellipse at 50% -18%, rgba(96, 139, 113, .2), transparent 52%),
+        #151d1b;
+    }
+
+    .app-shell {
+      width: min(100% - 32px, 1040px);
+      margin: 0 auto;
+      padding: 28px 0 40px;
+    }
+
+    .topbar, .brand, .puzzle-meta, .status-row, .board-footer {
+      display: flex;
+      align-items: center;
+    }
+
+    .topbar { justify-content: space-between; margin-bottom: 42px; }
+    .brand { gap: 11px; color: #f5f3ec; font-size: 15px; font-weight: 750; letter-spacing: .01em; }
+    .brand-mark {
+      display: grid;
+      width: 35px;
+      height: 35px;
+      place-items: center;
+      border: 1px solid rgba(212, 235, 218, .24);
+      border-radius: 11px;
+      background: #263b32;
+      color: #cde5d1;
+      font-size: 22px;
+      line-height: 1;
+    }
+
+    .eyebrow {
+      margin: 0 0 7px;
+      color: #a9c8af;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: .15em;
+      text-transform: uppercase;
+    }
+
+    main { display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, 330px); gap: clamp(28px, 5vw, 68px); align-items: center; }
+    .board-column { width: min(100%, 620px); justify-self: center; }
+    .board-frame {
+      overflow: hidden;
+      border: 1px solid rgba(232, 234, 220, .12);
+      border-radius: 15px;
+      background: #25302b;
+      box-shadow: 0 28px 70px rgba(0, 0, 0, .32);
+    }
+
+    .chessboard {
+      display: grid;
+      grid-template-columns: repeat(8, minmax(0, 1fr));
+      grid-template-rows: repeat(8, minmax(0, 1fr));
+      width: 100%;
+      aspect-ratio: 1;
+      touch-action: manipulation;
+      user-select: none;
+    }
+
+    .square {
+      position: relative;
+      display: grid;
+      min-width: 0;
+      min-height: 0;
+      place-items: center;
+      padding: 0;
+      border: 0;
+      border-radius: 0;
+      color: inherit;
+      cursor: pointer;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    .square.light { background: #e6e4d6; }
+    .square.dark { background: #728b78; }
+    .square:focus-visible { z-index: 2; outline: 3px solid #edc876; outline-offset: -4px; }
+    .square.selected { box-shadow: inset 0 0 0 5px rgba(240, 195, 83, .94); }
+    .square.last-move { background-image: linear-gradient(rgba(239, 195, 83, .3), rgba(239, 195, 83, .3)); }
+    .square.wrong-target { animation: nudge .22s ease-in-out 2; }
+
+    .piece {
+      display: block;
+      font-family: "Segoe UI Symbol", "Noto Sans Symbols 2", "DejaVu Sans", serif;
+      font-size: clamp(27px, 8.4vw, 70px);
+      line-height: 1;
+      pointer-events: none;
+      transform: translateY(-2%);
+    }
+
+    .piece.white-piece { color: #fffdf3; text-shadow: 0 2px 1px rgba(42, 52, 47, .67), 0 0 2px #24352d; }
+    .piece.black-piece { color: #26302c; text-shadow: 0 1px 0 rgba(255, 255, 255, .36); }
+    .coord-file, .coord-rank {
+      position: absolute;
+      font-size: clamp(9px, 1.7vw, 12px);
+      font-weight: 800;
+      line-height: 1;
+      pointer-events: none;
+    }
+    .coord-file { right: 5px; bottom: 4px; }
+    .coord-rank { top: 4px; left: 5px; }
+    .light .coord-file, .light .coord-rank { color: #728b78; }
+    .dark .coord-file, .dark .coord-rank { color: #e7e5d8; }
+
+    .board-footer { justify-content: space-between; padding: 12px 15px; color: #b9c6bd; font-size: 12px; }
+    .turn-indicator { display: inline-flex; align-items: center; gap: 8px; }
+    .turn-dot { width: 10px; height: 10px; border-radius: 50%; background: #fffdf3; box-shadow: 0 0 0 1px rgba(255,255,255,.3); }
+    .puzzle-id { color: #91a196; font-variant-numeric: tabular-nums; }
+
+    .side-panel { padding: 12px 0; }
+    h1 { margin: 0; font-size: clamp(35px, 5vw, 53px); letter-spacing: -.045em; line-height: 1.02; }
+    .subtitle { max-width: 32ch; margin: 15px 0 29px; color: #aab8af; font-size: 15px; line-height: 1.55; }
+    .puzzle-meta { gap: 8px; margin-bottom: 22px; }
+    .tag { padding: 7px 10px; border: 1px solid rgba(189, 211, 194, .19); border-radius: 999px; color: #c9d9ca; background: rgba(56, 80, 66, .35); font-size: 11px; font-weight: 700; }
+    .status-card {
+      min-height: 93px;
+      padding: 16px 17px;
+      border: 1px solid rgba(206, 222, 207, .14);
+      border-radius: 13px;
+      background: rgba(35, 48, 42, .76);
+    }
+    .status-row { gap: 10px; color: #e6ebdf; font-size: 14px; font-weight: 700; }
+    .status-icon { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: #344b3d; color: #cde2cb; }
+    .status-card p { margin: 8px 0 0 34px; color: #9eafa4; font-size: 12px; line-height: 1.45; }
+    .status-card.is-wrong { border-color: rgba(235, 151, 130, .48); }
+    .status-card.is-wrong .status-icon { background: #613f38; color: #ffd4c9; }
+    .status-card.is-solved { border-color: rgba(149, 210, 163, .42); background: rgba(37, 67, 48, .6); }
+    .status-card.is-solved .status-icon { background: #3e7650; color: #effff0; }
+    .source-link { display: inline-block; margin-top: 20px; color: #9fbca5; font-size: 12px; text-decoration-color: rgba(159, 188, 165, .4); text-underline-offset: 3px; }
+    .source-link:hover { color: #d2e8d4; }
+
+    @keyframes nudge { 25% { transform: translateX(-3px); } 75% { transform: translateX(3px); } }
+
+    @media (max-width: 760px) {
+      .app-shell { width: min(100% - 24px, 560px); padding-top: 18px; }
+      .topbar { margin-bottom: 28px; }
+      main { grid-template-columns: 1fr; gap: 22px; }
+      .board-column { width: min(100%, 540px); }
+      .side-panel { padding: 0 3px; }
+      h1 { font-size: 38px; }
+      .subtitle { margin: 9px 0 16px; }
+      .puzzle-meta { margin-bottom: 13px; }
+      .status-card { min-height: auto; }
+      .source-link { margin-top: 12px; }
+      .topbar .eyebrow { display: none; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark" aria-hidden="true">♞</span><span>TACTIC ROOM</span></div>
+      <p class="eyebrow">Daily chess practice</p>
+    </header>
+
+    <main>
+      <section class="board-column" aria-label="Puzzle board">
+        <div class="board-frame">
+          <div id="chessboard" class="chessboard" aria-label="Chessboard. White to move."></div>
+          <div class="board-footer">
+            <span class="turn-indicator"><span class="turn-dot" aria-hidden="true"></span><span id="turn-label">White to move</span></span>
+            <span class="puzzle-id">PUZZLE 00008</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="side-panel" aria-labelledby="page-title">
+        <p class="eyebrow">Puzzle 01 <span aria-hidden="true">/</span> Tactics</p>
+        <h1 id="page-title">Find the<br>best move.</h1>
+        <p class="subtitle">White has a chance to turn the attack into a decisive advantage. Find the move that keeps the pressure on.</p>
+        <div class="puzzle-meta" aria-label="Puzzle themes">
+          <span class="tag">Crushing</span>
+          <span class="tag">Middlegame</span>
+        </div>
+
+        <div id="status-card" class="status-card" role="status" aria-live="polite">
+          <div class="status-row"><span id="status-icon" class="status-icon" aria-hidden="true">↗</span><span id="status-title">Your move</span></div>
+          <p id="status-detail">Select a white piece, then choose its destination. You can also drag it.</p>
+        </div>
+        <a class="source-link" href="https://lichess.org/game/787zsVup/black#48" target="_blank" rel="noreferrer">View source game on Lichess ↗</a>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    // One sample row bundled from lichess_db_puzzle.csv (PuzzleId 00008).
+    // Lichess moves are UCI: the first move is the opponent's setup move;
+    // the player's solution begins with the second move.
+    const puzzleCsvRow = "00008,r6k/pp2r2p/4Rp1Q/3p4/8/1N1P2R1/PqP2bPP/7K b - - 0 24,f2g3 e6e7 b2b1 b3c1 b1c1 h6c1,1819,77,95,10446,crushing hangingPiece long middlegame,https://lichess.org/game/787zsVup/black#48,,";
+    const puzzleFields = puzzleCsvRow.split(",");
+    const puzzle = {
+      id: puzzleFields[0],
+      fen: puzzleFields[1],
+      moves: puzzleFields[2].trim().split(/\s+/),
+      themes: puzzleFields[7].split(" ")
+    };
+
+    const glyphs = {
+      K: "♔", Q: "♕", R: "♖", B: "♗", N: "♘", P: "♙",
+      k: "♚", q: "♛", r: "♜", b: "♝", n: "♞", p: "♟"
+    };
+    const files = "abcdefgh";
+    const playerColor = puzzle.fen.split(/\s+/)[1] === "w" ? "b" : "w";
+    const boardElement = document.getElementById("chessboard");
+    const statusCard = document.getElementById("status-card");
+    const statusIcon = document.getElementById("status-icon");
+    const statusTitle = document.getElementById("status-title");
+    const statusDetail = document.getElementById("status-detail");
+    const turnLabel = document.getElementById("turn-label");
+    let board = readFen(puzzle.fen);
+    let selectedSquare = null;
+    let solved = false;
+    let replyPending = false;
+    let nextPlayerMoveIndex = 1;
+    let lastMove = null;
+
+    // Prepare the position that Lichess presents to the solver by applying
+    // the opponent's first UCI move from the puzzle row.
+    applyUciMove(board, puzzle.moves[0]);
+    setTurn(playerColor);
+    renderBoard();
+
+    function readFen(fen) {
+      const rows = fen.split(/\s+/)[0].split("/");
+      const position = {};
+      rows.forEach((row, rowIndex) => {
+        let fileIndex = 0;
+        for (const symbol of row) {
+          if (/\d/.test(symbol)) {
+            fileIndex += Number(symbol);
+          } else {
+            const square = `${files[fileIndex]}${8 - rowIndex}`;
+            position[square] = symbol;
+            fileIndex += 1;
+          }
+        }
+      });
+      return position;
+    }
+
+    function applyUciMove(position, uci) {
+      const from = uci.slice(0, 2);
+      const to = uci.slice(2, 4);
+      const piece = position[from];
+      if (!piece || !/^[a-h][1-8][a-h][1-8][qrbn]?$/.test(uci)) return false;
+      delete position[from];
+      position[to] = uci[4] ? (piece === piece.toUpperCase() ? uci[4].toUpperCase() : uci[4]) : piece;
+      return true;
+    }
+
+    function isPlayerPiece(piece) {
+      if (!piece) return false;
+      return playerColor === "w" ? piece === piece.toUpperCase() : piece === piece.toLowerCase();
+    }
+
+    function squareName(row, col) {
+      const fileIndex = playerColor === "w" ? col : 7 - col;
+      const rank = playerColor === "w" ? 8 - row : row + 1;
+      return `${files[fileIndex]}${rank}`;
+    }
+
+    function renderBoard() {
+      boardElement.replaceChildren();
+      for (let row = 0; row < 8; row += 1) {
+        for (let col = 0; col < 8; col += 1) {
+          const square = squareName(row, col);
+          const piece = board[square];
+          const isLight = (files.indexOf(square[0]) + Number(square[1])) % 2 === 0;
+          const cell = document.createElement("button");
+          cell.type = "button";
+          cell.className = `square ${isLight ? "light" : "dark"}`;
+          cell.dataset.square = square;
+          cell.setAttribute("aria-label", `${square}${piece ? `, ${pieceName(piece)}` : ""}`);
+          cell.setAttribute("aria-selected", selectedSquare === square ? "true" : "false");
+          if (selectedSquare === square) cell.classList.add("selected");
+          if (lastMove && (lastMove.from === square || lastMove.to === square)) cell.classList.add("last-move");
+          cell.draggable = Boolean(piece && isPlayerPiece(piece) && !solved && !replyPending);
+
+          if (row === 7) {
+            const fileLabel = document.createElement("span");
+            fileLabel.className = "coord-file";
+            fileLabel.textContent = square[0];
+            cell.append(fileLabel);
+          }
+          if (col === 0) {
+            const rankLabel = document.createElement("span");
+            rankLabel.className = "coord-rank";
+            rankLabel.textContent = square[1];
+            cell.append(rankLabel);
+          }
+          if (piece) {
+            const pieceElement = document.createElement("span");
+            pieceElement.className = `piece ${piece === piece.toUpperCase() ? "white-piece" : "black-piece"}`;
+            pieceElement.textContent = glyphs[piece];
+            pieceElement.setAttribute("aria-hidden", "true");
+            cell.append(pieceElement);
+          }
+
+          cell.addEventListener("click", () => handleSquareClick(square));
+          cell.addEventListener("dragstart", (event) => {
+            if (!isPlayerPiece(board[square]) || solved || replyPending) {
+              event.preventDefault();
+              return;
+            }
+            selectedSquare = square;
+            event.dataTransfer.setData("text/plain", square);
+            event.dataTransfer.effectAllowed = "move";
+            cell.classList.add("selected");
+          });
+          cell.addEventListener("dragover", (event) => event.preventDefault());
+          cell.addEventListener("drop", (event) => {
+            event.preventDefault();
+            const from = event.dataTransfer.getData("text/plain") || selectedSquare;
+            if (from) attemptMove(from, square);
+          });
+          boardElement.append(cell);
+        }
+      }
+    }
+
+    function pieceName(piece) {
+      const names = { k: "king", q: "queen", r: "rook", b: "bishop", n: "knight", p: "pawn" };
+      return `${piece === piece.toUpperCase() ? "White" : "Black"} ${names[piece.toLowerCase()]}`;
+    }
+
+    function handleSquareClick(square) {
+      if (solved || replyPending) return;
+      const piece = board[square];
+      if (!selectedSquare) {
+        if (isPlayerPiece(piece)) {
+          selectedSquare = square;
+          setStatus("Piece selected", `Choose a destination for the ${pieceName(piece).toLowerCase()}.`, "↗", "neutral");
+          renderBoard();
+        }
+        return;
+      }
+      if (square === selectedSquare) {
+        selectedSquare = null;
+        setStatus("Your move", `Select a ${colorName(playerColor).toLowerCase()} piece, then choose its destination. You can also drag it.`, "↗", "neutral");
+        renderBoard();
+        return;
+      }
+      if (isPlayerPiece(piece)) {
+        selectedSquare = square;
+        setStatus("Piece selected", `Choose a destination for the ${pieceName(piece).toLowerCase()}.`, "↗", "neutral");
+        renderBoard();
+        return;
+      }
+      attemptMove(selectedSquare, square);
+    }
+
+    function attemptMove(from, to) {
+      if (solved || replyPending || !board[from] || !isPlayerPiece(board[from])) return;
+      const expectedMove = puzzle.moves[nextPlayerMoveIndex];
+      if (expectedMove && from === expectedMove.slice(0, 2) && to === expectedMove.slice(2, 4)) {
+        const moved = applyUciMove(board, expectedMove);
+        if (!moved) return;
+        selectedSquare = null;
+        lastMove = { from, to };
+        nextPlayerMoveIndex += 1;
+
+        if (nextPlayerMoveIndex >= puzzle.moves.length) {
+          finishPuzzle();
+          return;
+        }
+
+        const reply = puzzle.moves[nextPlayerMoveIndex];
+        replyPending = true;
+        setTurn(playerColor === "w" ? "b" : "w");
+        setStatus("Correct move", "The opponent responds...", "↗", "neutral");
+        renderBoard();
+        window.setTimeout(() => {
+          applyUciMove(board, reply);
+          lastMove = { from: reply.slice(0, 2), to: reply.slice(2, 4) };
+          nextPlayerMoveIndex += 1;
+          replyPending = false;
+
+          if (nextPlayerMoveIndex >= puzzle.moves.length) {
+            finishPuzzle();
+            return;
+          }
+
+          setTurn(playerColor);
+          setStatus("Your move", "Good. Find the next move in the line.", "↗", "neutral");
+          renderBoard();
+        }, 450);
+        return;
+      }
+      selectedSquare = null;
+      setStatus("Not quite", "That isn't the move. Try another move; the position is ready for you.", "↻", "wrong");
+      renderBoard();
+      const target = boardElement.querySelector(`[data-square="${to}"]`);
+      if (target) {
+        target.classList.add("wrong-target");
+        window.setTimeout(() => target.classList.remove("wrong-target"), 500);
+      }
+    }
+
+    function colorName(color) {
+      return color === "w" ? "White" : "Black";
+    }
+
+    function setTurn(color) {
+      turnLabel.textContent = `${colorName(color)} to move`;
+      boardElement.setAttribute("aria-label", `Chessboard. ${turnLabel.textContent}.`);
+    }
+
+    function finishPuzzle() {
+      solved = true;
+      replyPending = false;
+      selectedSquare = null;
+      turnLabel.textContent = "Puzzle complete";
+      boardElement.setAttribute("aria-label", "Chessboard. Puzzle complete.");
+      setStatus("Puzzle solved", "Excellent. You found the complete line.", "✓", "solved");
+      renderBoard();
+    }
+
+    function setStatus(title, detail, icon, state) {
+      statusTitle.textContent = title;
+      statusDetail.textContent = detail;
+      statusIcon.textContent = icon;
+      statusCard.classList.toggle("is-wrong", state === "wrong");
+      statusCard.classList.toggle("is-solved", state === "solved");
+    }
+  </script>
+</body>
+</html>
